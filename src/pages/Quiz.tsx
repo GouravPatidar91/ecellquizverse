@@ -136,11 +136,13 @@ const Quiz = () => {
       }
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
+    }
   }, [quizStarted, quizCompleted, visibilityWarnings, toast]);
 
   const handleStartQuiz = () => {
@@ -169,11 +171,11 @@ const Quiz = () => {
       setAnswers(prev => [...prev, "skipped"]);
     } else {
       const currentQ = questions[currentQuestion];
-      if (currentQ.question_type === 'multiple_choice') {
+      if (currentQ?.question_type === 'multiple_choice') {
         if (selectedAnswer === currentQ.correct_answer) {
           setScore(prev => prev + 1);
         }
-      } else {
+      } else if (currentQ) {
         if (selectedAnswer.toLowerCase() === currentQ.correct_answer.toLowerCase()) {
           setScore(prev => prev + 1);
         }
@@ -184,7 +186,7 @@ const Quiz = () => {
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(null);
-      setTimeRemaining(questions[currentQuestion + 1].time_limit);
+      setTimeRemaining(questions[currentQuestion + 1]?.time_limit || null);
     } else {
       setQuizCompleted(true);
     }
