@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,14 +9,18 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Trash2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
-
-type QuestionType = 'multiple_choice' | 'written';
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import CodeCompiler from "@/components/CodeCompiler";
+import type { QuestionType } from "@/types/quiz";
 
 type DatabaseQuizQuestion = Database["public"]["Tables"]["quiz_questions"]["Row"];
 
 interface QuizQuestion extends Omit<DatabaseQuizQuestion, 'options'> {
   options: string[];
   question_type: QuestionType;
+  has_compiler: boolean | null;
+  compiler_language: string | null;
 }
 
 const Admin = () => {
@@ -30,6 +33,8 @@ const Admin = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingQuestions, setExistingQuestions] = useState<QuizQuestion[]>([]);
+  const [hasCompiler, setHasCompiler] = useState(false);
+  const [compilerLanguage, setCompilerLanguage] = useState("javascript");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -83,7 +88,8 @@ const Admin = () => {
           options: q.options as string[],
           question_type: (q.question_type || 'multiple_choice') as QuestionType,
           time_limit: q.time_limit || 30,
-          correct_answer: q.correct_answer
+          has_compiler: q.has_compiler as boolean || false,
+          compiler_language: q.compiler_language as string || 'javascript'
         }));
         setExistingQuestions(transformedQuestions);
       }
@@ -166,12 +172,14 @@ const Admin = () => {
         correct_answer: questionType === 'multiple_choice' ? correctAnswer.toString() : writtenAnswer,
         question_type: questionType,
         created_by: user?.id ?? '',
-        time_limit: timeLimit
+        time_limit: timeLimit,
+        has_compiler: hasCompiler,
+        compiler_language: hasCompiler ? compilerLanguage : null
       };
 
       const { error } = await supabase
         .from('quiz_questions')
-        .insert(newQuestion as DatabaseQuizQuestion);
+        .insert(newQuestion);
 
       if (error) throw error;
 
@@ -186,6 +194,8 @@ const Admin = () => {
       setCorrectAnswer(0);
       setWrittenAnswer("");
       setTimeLimit(30);
+      setHasCompiler(false);
+      setCompilerLanguage("javascript");
       
       // Refresh questions list
       fetchQuestions();
@@ -239,7 +249,7 @@ const Admin = () => {
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Enter your question"
-                  className="min-h-[100px]"
+                  className="min-h-[100px] whitespace-pre-wrap"
                 />
               </div>
 
@@ -254,6 +264,33 @@ const Admin = () => {
                   onChange={(e) => setTimeLimit(Number(e.target.value))}
                 />
               </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="hasCompiler"
+                  checked={hasCompiler}
+                  onCheckedChange={setHasCompiler}
+                />
+                <Label htmlFor="hasCompiler">Enable Code Compiler</Label>
+              </div>
+              
+              {hasCompiler && (
+                <div className="space-y-2">
+                  <Label htmlFor="compilerLanguage">Default Compiler Language</Label>
+                  <Select value={compilerLanguage} onValueChange={setCompilerLanguage}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="javascript">JavaScript</SelectItem>
+                      <SelectItem value="python">Python</SelectItem>
+                      <SelectItem value="java">Java</SelectItem>
+                      <SelectItem value="cpp">C++</SelectItem>
+                      <SelectItem value="csharp">C#</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {questionType === 'multiple_choice' ? (
                 <>
@@ -273,7 +310,11 @@ const Admin = () => {
                       <Input
                         id={`option${index}`}
                         value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        onChange={(e) => {
+                          const newOptions = [...options];
+                          newOptions[index] = e.target.value;
+                          setOptions(newOptions);
+                        }}
                         placeholder={`Enter option ${index + 1}`}
                       />
                     </div>
@@ -287,7 +328,18 @@ const Admin = () => {
                     value={writtenAnswer}
                     onChange={(e) => setWrittenAnswer(e.target.value)}
                     placeholder="Enter the correct answer"
-                    className="min-h-[150px] resize-y"
+                    className="min-h-[150px] resize-y whitespace-pre-wrap"
+                  />
+                </div>
+              )}
+              
+              {hasCompiler && (
+                <div className="pt-4">
+                  <Label className="mb-2 block">Code Compiler Preview</Label>
+                  <CodeCompiler
+                    language={compilerLanguage}
+                    defaultLanguage={compilerLanguage}
+                    onLanguageChange={setCompilerLanguage}
                   />
                 </div>
               )}
@@ -308,6 +360,11 @@ const Admin = () => {
                       <div className="flex items-center gap-2">
                         <p className="font-medium">Question {index + 1}: {q.question}</p>
                         <span className="text-sm text-gray-500">({q.question_type})</span>
+                        {q.has_compiler && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            Code Compiler: {q.compiler_language}
+                          </span>
+                        )}
                       </div>
                       <div className="pl-4 space-y-1">
                         {q.question_type === 'multiple_choice' ? (
