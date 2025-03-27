@@ -118,6 +118,44 @@ const Quiz = () => {
     return () => clearInterval(timer);
   }, [quizStarted, timeRemaining]);
 
+  // Add these new state variables after other state declarations
+  const [visibilityWarnings, setVisibilityWarnings] = useState(0);
+  const [isHidden, setIsHidden] = useState(false);
+
+  // Add this effect to handle tab visibility
+  useEffect(() => {
+    if (!quizStarted || quizCompleted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsHidden(true);
+        setVisibilityWarnings(prev => prev + 1);
+        
+        if (visibilityWarnings === 0) {
+          toast({
+            title: "Warning!",
+            description: "Do not leave the quiz tab! This is your first warning.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Quiz Terminated",
+            description: "You switched tabs again. Your quiz has been automatically submitted.",
+            variant: "destructive",
+          });
+          handleSubmitQuiz();
+        }
+      } else {
+        setIsHidden(false);
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    }
+  }, [quizStarted, quizCompleted, visibilityWarnings, toast]);
+
   const handleStartQuiz = () => {
     if (questions.length === 0) {
       toast({
@@ -127,6 +165,8 @@ const Quiz = () => {
       });
       return;
     }
+    setVisibilityWarnings(0);
+    setIsHidden(false);
     setQuizStarted(true);
     setCurrentQuestion(0);
     setScore(0);
@@ -262,6 +302,14 @@ const Quiz = () => {
               <div className="space-y-6">
                 {!quizCompleted ? (
                   <>
+                    {isHidden && (
+                      <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 animate-pulse">
+                        <p className="text-red-600 font-medium">
+                          Warning: Please return to the quiz tab! ({visibilityWarnings}/1)
+                        </p>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium">
                         Question {currentQuestion + 1} of {questions.length}
