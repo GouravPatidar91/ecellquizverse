@@ -10,10 +10,7 @@ import CodeCompiler from "@/components/CodeCompiler";
 import type { QuizQuestion, QuizResult } from "@/types/quiz";
 import { AlertTriangle } from "lucide-react";
 
-const maxVisibilityWarnings = 3; // Define the maximum number of visibility warnings allowed
-
 const Quiz = () => {
-
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -116,17 +113,16 @@ const Quiz = () => {
         setIsHidden(true);
         setVisibilityWarnings(prev => prev + 1);
         
-        if (visibilityWarnings === 0) {
-          toast({
-            title: "Warning!",
-            description: `Do not leave the quiz tab! This is your first warning.`,
-            variant: "destructive",
-          });
-        } else {
-          handleSubmitQuiz();
+        toast({
+          title: "Warning!",
+          description: `Do not leave the quiz tab! Warning ${visibilityWarnings + 1}/${maxVisibilityWarnings}`,
+          variant: "destructive",
+        });
+        
+        if (visibilityWarnings + 1 >= maxVisibilityWarnings) {
           toast({
             title: "Quiz Terminated",
-            description: "You switched tabs twice. Your quiz has been automatically submitted.",
+            description: "You have exceeded the maximum number of tab switches. Your quiz has been submitted.",
             variant: "destructive",
           });
           setQuizCompleted(true);
