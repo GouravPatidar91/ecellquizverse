@@ -40,17 +40,17 @@ const Admin = () => {
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (typeof window === 'undefined') return;
-
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
           navigate('/auth');
           return;
         }
 
-        const { data: adminCheck, error: adminError } = await supabase.rpc('is_admin', { user_id: user.id });
-        if (adminError || !adminCheck) {
+        const { data: adminCheck } = await supabase
+          .rpc('is_admin', { user_id: user.id });
+
+        if (!adminCheck) {
           toast({
             title: "Access Denied",
             description: "You need admin privileges to access this page",
@@ -61,7 +61,7 @@ const Admin = () => {
         }
 
         setIsAdmin(true);
-        await fetchQuestions();
+        fetchQuestions();
       } catch (error) {
         console.error('Error checking admin status:', error);
         navigate('/');
@@ -82,14 +82,17 @@ const Admin = () => {
 
       if (error) throw error;
 
-      setExistingQuestions(data?.map(q => ({
-        ...q,
-        options: q.options as string[],
-        question_type: (q.question_type || 'multiple_choice') as QuestionType,
-        time_limit: q.time_limit || 30,
-        has_compiler: q.has_compiler as boolean || false,
-        compiler_language: q.compiler_language as string || 'javascript'
-      })) || []);
+      if (data) {
+        const transformedQuestions: QuizQuestion[] = data.map(q => ({
+          ...q,
+          options: q.options as string[],
+          question_type: (q.question_type || 'multiple_choice') as QuestionType,
+          time_limit: q.time_limit || 30,
+          has_compiler: q.has_compiler as boolean || false,
+          compiler_language: q.compiler_language as string || 'javascript'
+        }));
+        setExistingQuestions(transformedQuestions);
+      }
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
